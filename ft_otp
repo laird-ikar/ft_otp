@@ -1,0 +1,121 @@
+#!python3
+
+import sys
+import os
+import re
+import qrcode
+import time
+from hashlib import sha1
+import random
+import os
+
+#https://github.com/gits2501/Hmac_Sha1/blob/master/hmacSha1.js
+
+#https://en.wikipedia.org/wiki/HMAC#/media/File:SHAhmac.svg
+
+def qrcode_creation(seed):
+	# Generate a unique identifier using the seed and timestamp
+	#timestamp = int(time.time() * 1000)  # Get current timestamp
+	#identifier = f"{seed}_{timestamp}"
+
+	rand = random.Random(seed)
+	data = rand.randbytes(64).hex()
+
+	# Generate QR code
+	qr = qrcode.QRCode(
+		version=1,
+		error_correction=qrcode.constants.ERROR_CORRECT_H,
+		box_size=10,
+		border=4
+	)
+	qr.add_data(data)
+	qr.make(fit=True)
+
+	qr_image = qr.make_image(fill_color="black", back_color="white")
+	qr_image.save("qr_code.png")
+	
+	os.system("open qr_code.png")
+
+
+def enc(key):
+	key = int(key, 16)
+	key *= 42
+	key -= 42
+	key *= 69
+	key = hex(key)[2:]
+	return key
+
+def dec(cipher):
+	cipher = int(cipher, 16)
+	cipher //= 69
+	cipher += 42
+	cipher //= 42
+	return cipher
+
+def generate_key(keyfile):
+	if not os.path.isfile(keyfile):
+		print("Keyfile does not exist .⁠·⁠´⁠¯⁠⁠(⁠>⁠▂⁠<⁠)⁠´⁠¯⁠⁠·⁠.")
+		exit(1)
+	with open(keyfile, "r") as file:
+		key = file.read()
+	if (len(key) < 64):
+		print("(⁠ノ⁠•̀⁠ ⁠o⁠ ⁠•́⁠ ⁠)⁠ノ⁠ ⁠~⁠ ⁠┻⁠━⁠┻ Keyfile must be at least 64 characters long")
+		exit(1)
+	key = key.lower()
+	if not re.match("^[0-9a-f]+$", key):
+		print("Keyfile must only contain hexadecimal characters (⁠●⁠´⁠⌓⁠`⁠●⁠)")
+		exit(1)
+	with open ("ft_otp.key", "w+") as fkey:
+		fkey.write(enc(key))
+
+def generate_tmp_password(keyfile):
+	if not os.path.isfile(keyfile):
+		print("Keyfile does not exist .⁠·⁠´⁠¯⁠⁠(⁠>⁠▂⁠<⁠)⁠´⁠¯⁠⁠·⁠.")
+		exit(1)
+	with open(keyfile, "r") as file:
+		key = file.read()
+	key = dec(key)
+	hs = hmac_sha1(key, int(time.time() // 30))
+	sbits = dt(hs)
+	snum = Saint_Ton_Nhum(sbits)
+	tmp_passwd = snum % 10 ** 6
+	print(f"(⁠☞⁠ ⁠ಠ⁠_⁠ಠ⁠)⁠☞ Take this bg -> {tmp_passwd}")
+	qrcode_creation(tmp_passwd)
+
+def hmac_sha1(key:str, count:int):
+	print(key)
+	key = [n for n in key.to_bytes(64)]
+	print(len(key))
+
+	i_key_pad = [k ^ 0x36 for k in key]
+	o_key_pad = [k ^ 0x5c for k in key]
+
+	return sha1(bytes(o_key_pad) + sha1(bytes(i_key_pad) + count.to_bytes(8, 'big')).digest()).digest()
+
+#takes a hs as argument, and executes dt on it
+def dt(hs):
+	offset = hs[-1] & 0xf
+	bincode = (hs[offset] & 0x7f) << 24
+	bincode |= (hs[offset + 1] & 0xff) << 16
+	bincode |= (hs[offset + 2] & 0xff) << 8
+	bincode |= (hs[offset + 3] & 0xff)
+	return hs
+
+def Saint_Ton_Nhum(sbits):
+	return int.from_bytes(sbits)
+
+# MAIN ##
+def main():
+	if len(sys.argv) != 3 or (sys.argv[1] != "-g" and sys.argv[1] != "-k"):
+		print("Usage:\n\t./ft_otp -g keyfile\n\t./ft_otp -k keyfile")
+		exit(1)
+	if sys.argv[1] == "-g":
+		generate_key(sys.argv[2])
+		print("  .・。.・✭゜・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。.  ")
+		print("✧･ﾟYour key was successfully and gracefully generated in your beloved ft_otp.key file, my dear ﾟ･✧")
+		print("  .・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。..・。  ")
+	elif sys.argv[1] == "-k":
+		generate_tmp_password(sys.argv[2])
+
+if __name__ == "__main__":
+	main()
