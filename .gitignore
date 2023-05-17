@@ -1,3 +1,5 @@
 key.hex
 ft_otp.key
 qr_code.png
+env
+rsa_keys

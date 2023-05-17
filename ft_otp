@@ -5,8 +5,24 @@ import os
 import re
 import qrcode
 import time
+import rsa
 from hashlib import sha1
 import random
+
+def generate_RSA_keys():
+    (publicKey, privateKey) = rsa.newkeys(1024)
+    with open('./rsa_keys/publicKey.pem', 'wb') as p:
+        p.write(publicKey.save_pkcs1('PEM'))
+    with open('./rsa_keys/privateKey.pem', 'wb') as p:
+        p.write(privateKey.save_pkcs1('PEM'))
+
+def load_RSA_keys():
+    with open('./rsa_keys/publicKey.pem', 'rb') as p:
+        publicKey = rsa.PublicKey.load_pkcs1(p.read())
+    with open('./rsa_keys/privateKey.pem', 'rb') as p:
+        privateKey = rsa.PrivateKey.load_pkcs1(p.read())
+    return privateKey, publicKey
+
 
 def qrcode_creation(seed):
 	rand = random.Random(seed)
@@ -26,21 +42,21 @@ def qrcode_creation(seed):
 	qr_image.save("qr_code.png")
 	os.system("open qr_code.png")
 
-
 def encode(key) -> str:
-	key = int(key, 16)
-	key *= 42
-	key -= 42
-	key *= 69
-	key = hex(key)[2:]
-	return key
+	if not os.path.isdir('./rsa_keys'):
+		os.mkdir('./rsa_keys')
+		generate_RSA_keys()
+	keys = load_RSA_keys()
+	return rsa.encrypt(key.encode('ascii'), keys[1])
+
 
 def decode(cipher) -> int:
-	cipher = int(cipher, 16)
-	cipher //= 69
-	cipher += 42
-	cipher //= 42
-	return cipher
+	keys = load_RSA_keys()
+	try:
+		return int.from_bytes(rsa.decrypt(cipher, keys[0]).decode('ascii'))
+	except:
+		return False
+
 
 def generate_key(keyfile):
 	if not os.path.isfile(keyfile):
@@ -55,14 +71,14 @@ def generate_key(keyfile):
 	if not re.match("^[0-9a-f]+$", key):
 		print("Keyfile must only contain hexadecimal characters (⁠●⁠´⁠⌓⁠`⁠●⁠)")
 		exit(1)
-	with open ("ft_otp.key", "w+") as fkey:
+	with open ("ft_otp.key", "wb+") as fkey:
 		fkey.write(encode(key))
 
 def generate_tmp_password(keyfile):
 	if not os.path.isfile(keyfile):
 		print("Keyfile does not exist .⁠·⁠´⁠¯⁠⁠(⁠>⁠▂⁠<⁠)⁠´⁠¯⁠⁠·⁠.")
 		exit(1)
-	with open(keyfile, "r") as file:
+	with open(keyfile, "rb") as file:
 		key = file.read()
 	key = decode(key)
 	hs = hmac_sha1(key, int(time.time() // 30))
