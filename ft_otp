@@ -119,13 +119,13 @@ def hmac_sha1(key:int, count:int) -> bytes: # 💯 no bug, checked against pytho
 	hs = sha1(
 		bytes(o_key_pad) +
 		sha1(bytes(i_key_pad) +
-			count.to_bytes(32, 'big')
+			(count & 0xF).to_bytes(1, 'big')
 		).digest()).digest()
 	return hs
 
 #takes a hs as argument, and executes dt on it
 def dt(hs:bytes) -> bytes: # fuck seems legit (⁠ノ⁠•̀⁠ ⁠o⁠ ⁠•́⁠ ⁠)⁠ノ⁠ ⁠~⁠ ⁠┻⁠━⁠┻
-	offset = hs[-1] & 0xf
+	offset = hs[-1] & 0x0f
 	bincode = (hs[offset]  & 0x7f) << 24 | (hs[offset+1] & 0xff) << 16 | (
 		hs[offset+2] & 0xff) <<  8 | (hs[offset+3] & 0xff)
 	return bincode
