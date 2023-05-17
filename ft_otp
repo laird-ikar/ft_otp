@@ -111,7 +111,7 @@ def generate_tmp_password(keyfile):
 	qrcode_creation(tmp_passwd)
 
 def hmac_sha1(key:int, count:int) -> bytes: # 💯 no bug, checked against python hmac
-	key = [n for n in key.to_bytes(32, 'little')]
+	key = [n for n in (key & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF).to_bytes(32, 'little')]
 
 	i_key_pad = [k ^ 0x36 for k in key]
 	o_key_pad = [k ^ 0x5c for k in key]
