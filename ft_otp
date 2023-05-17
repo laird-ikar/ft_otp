@@ -84,7 +84,7 @@ def generate_tmp_password(keyfile):
 	sbits = dt(hs)
 	snum = Saint_Ton_Nhum(sbits)
 	tmp_passwd = snum % 10 ** 6
-	print(f"(⁠☞⁠ ⁠ಠ⁠_⁠ಠ⁠)⁠☞ Take this bg -> {tmp_passwd}")
+	print(f"(⁠☞⁠ ⁠ಠ⁠_⁠ಠ⁠)⁠☞ Take this bg -> {tmp_passwd:06}")
 	qrcode_creation(tmp_passwd)
 
 def hmac_sha1(key:int, count:int) -> bytes:
