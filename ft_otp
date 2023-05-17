@@ -53,9 +53,7 @@ def encode(key) -> str:
 
 def decode(cipher) -> int:
 	keys = load_RSA_keys()
-	return int.from_bytes(rsa.decrypt(cipher, keys[0]))
-
-
+	return int(rsa.decrypt(cipher, keys[0]).decode('ascii'), 16)
 
 def generate_key(keyfile):
 	if not os.path.isfile(keyfile):
@@ -80,7 +78,10 @@ def generate_tmp_password(keyfile):
 	with open(keyfile, "rb") as file:
 		key = file.read()
 	key = decode(key)
-	hs = hmac_sha1(key, int(time.time() // 30))
+	print(key)
+	time_count = int(time.time() // 30)
+	time_count = 0
+	hs = hmac_sha1(key, time_count)
 	sbits = dt(hs)
 	snum = Saint_Ton_Nhum(sbits)
 	tmp_passwd = snum % 10 ** 6
@@ -96,7 +97,7 @@ def hmac_sha1(key:int, count:int) -> bytes:
 	hs = sha1(
 		bytes(o_key_pad) +
 		sha1(bytes(i_key_pad) +
-			count.to_bytes(8, 'little')
+			count.to_bytes(64, 'little')
 		).digest()).digest()
 
 	return hs
