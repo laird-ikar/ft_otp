@@ -79,7 +79,10 @@ def encode(key) -> str:
 
 def decode(cipher) -> int:
 	keys = load_RSA_keys()
-	return bytes.fromhex(rsa.decrypt(cipher, keys[0]).decode('ascii'))
+	deced = rsa.decrypt(cipher, keys[0]).decode('ascii')
+	if (len(deced) % 2 == 1):
+		deced = "0" + deced
+	return bytes.fromhex(deced)
 
 def generate_key(keyfile):
 	if not os.path.isfile(keyfile):
