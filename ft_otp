@@ -1,6 +1,5 @@
 #!python3
 
-import sys
 import os
 import re
 import qrcode
@@ -8,11 +7,14 @@ import time
 import rsa
 from hashlib import sha1
 import random
-from PIL import Image
-import base64
+from PIL import Image, ImageTk
 import warnings
 import hmac
 import struct
+import argparse
+import tkinter as tk
+import tkinter.filedialog as fdg
+import signal
 
 def generate_RSA_keys():
     (publicKey, privateKey) = rsa.newkeys(1024)
@@ -28,7 +30,7 @@ def load_RSA_keys():
         privateKey = rsa.PrivateKey.load_pkcs1(p.read())
     return privateKey, publicKey
 
-def qrcode_creation(seed):
+def qrcode_creation(seed) -> Image:
 	rand = random.Random(seed)
 	data = rand.randbytes(64).hex()#.to_bytes(32, sys.byteorder).hex() #rand.randbytes -> rand.getrandbits parce que apparemment la fonction randbytes a disparu depuis la derniere fois 
 
@@ -65,9 +67,7 @@ def qrcode_creation(seed):
 	final_image.paste(qr_image, (0, 0))
 	final_image.paste(overlay_image, position, overlay_image)
 
-    # Save the final image
-	final_image.save("qr_code.png")
-	os.system("open qr_code.png")
+	return final_image
 
 
 def encode(key) -> str:
@@ -90,27 +90,21 @@ def generate_key(keyfile):
 	if (len(key) < 64):
 		print("(⁠ノ⁠•̀⁠ ⁠o⁠ ⁠•́⁠ ⁠)⁠ノ⁠ ⁠~⁠ ⁠┻⁠━⁠┻ Keyfile must be at least 64 characters long")
 		exit(1)
-	key = key.lower()
-	if not re.match("^[0-9a-f]+$", key):
+	key = key.lower().strip()
+	if not re.match(r"^[0-9a-fA-F]+$", key):
 		print("Keyfile must only contain hexadecimal characters (⁠●⁠´⁠⌓⁠`⁠●⁠)")
 		exit(1)
 	with open ("ft_otp.key", "wb+") as fkey:
 		fkey.write(encode(key))
 
-def generate_tmp_password(keyfile):
-	if not os.path.isfile(keyfile):
-		print("Keyfile does not exist .⁠·⁠´⁠¯⁠⁠(⁠>⁠▂⁠<⁠)⁠´⁠¯⁠⁠·⁠.")
-		exit(1)
-	with open(keyfile, "rb") as file:
-		key = file.read()
+def generate_tmp_password(key):
 	key = decode(key)
 	time_count = int(time.time() // 30)
 	hs = hmac_sha1(key, time_count)
 	sbits = dt(hs)
 	snum = Saint_Ton_Nhum(sbits)
 	tmp_passwd = snum % 10 ** 6
-	print(f"(⁠☞⁠ ⁠ಠ⁠_⁠ಠ⁠)⁠☞ Take this bg -> {tmp_passwd:06}")
-	qrcode_creation(tmp_passwd)
+	return tmp_passwd
 
 def hmac_sha1(key:int, count:int) -> bytes: # 💯 no bug, checked against python hmac
 	return hmac.digest(key, struct.pack('>Q', count), sha1)
@@ -125,18 +119,132 @@ def dt(hs:bytes) -> bytes: # fuck seems legit (⁠ノ⁠•̀⁠ ⁠o⁠ ⁠•�
 def Saint_Ton_Nhum(sbits):
 	return sbits
 
+
+# INTERFACE #
+def make_interface():
+	global key
+	global passwd
+	global passwd_timer
+	global is_on
+	key = b""
+	passwd = ""
+
+	signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+	root = tk.Tk()
+	left_frame = tk.Frame(root)
+	left_frame.pack(side=tk.LEFT, padx=20)
+	right_frame = tk.Frame(root)
+	right_frame.pack(side=tk.RIGHT, padx=20)
+
+	def hex_callback(sv:tk.StringVar):
+		global key
+		global passwd
+		data = re.sub(r"[^0-9a-fA-F]", "", sv.get())
+		data = data[:64]
+		sv.set(data)
+		if (len(data) != 64):
+			return
+		key = encode(data)
+		passwd = str(generate_tmp_password(key))
+		qr_code = ImageTk.PhotoImage(qrcode_creation(passwd))
+		qrcode_label.configure(image=qr_code)
+		qrcode_label.image = qr_code
+		code_label_update()
+
+
+	input_label = tk.Label(left_frame, text="Your hex key here")
+	input_label.pack(side=tk.TOP)
+	hex_sv = tk.StringVar()
+	hex_sv.trace("w", lambda name, index, mode, sv=hex_sv: hex_callback(hex_sv))
+	hex_field = tk.Entry(left_frame, textvariable=hex_sv, width=72)
+	hex_field.pack(pady=10, expand=True, fill=tk.X)
+
+	qrcode_label = tk.Label(right_frame)
+	qrcode_label.pack(side=tk.TOP)
+
+	code_label = tk.Label(right_frame, text="______", font=("Arial", 25))
+	is_on = False
+	def code_label_enter(e):
+		global is_on
+		if (passwd != ""):
+			is_on = True
+			code_label.configure(text=passwd)
+	def code_label_leave(e):
+		global is_on
+		if (passwd != ""):
+			is_on = False
+			code_label.configure(text="______")
+	def code_label_update():
+		if (is_on):
+			code_label.configure(text=passwd)
+	code_label.bind("<Enter>", code_label_enter)
+	code_label.bind("<Leave>", code_label_leave)
+	code_label.pack(side=tk.TOP, fill=tk.X, expand=True)
+
+	timer_label = tk.Label(right_frame, text=str(30.0))
+	passwd_timer = 30000.0
+	def update_timer():
+		global passwd_timer
+		timer_label.configure(text=str(passwd_timer / 1000))
+		if (passwd_timer <= 0):
+			passwd_timer = 0
+			return
+		passwd_timer -= 100.0
+		timer_label.after(100, update_timer)
+		
+	timer_label.after(100, update_timer)
+	timer_label.pack()
+
+	def update_callback():
+		global passwd_timer
+		passwd_timer = 30000.0
+		hex_callback(hex_sv)
+		root.after(30000, update_callback)
+	root.after(30000, update_callback)
+	
+	root.mainloop()
+
+
+
 # MAIN ##
 def main():
-	if len(sys.argv) != 3 or (sys.argv[1] != "-g" and sys.argv[1] != "-k"):
-		print("Usage:\n\t./ft_otp -g keyfile\n\t./ft_otp -k keyfile")
-		exit(1)
-	if sys.argv[1] == "-g":
-		generate_key(sys.argv[2])
+
+	parser = argparse.ArgumentParser(prog="ft_otp", description="generates a 1 time password that expires after 30 secs from a 64 hex key")
+	group = parser.add_mutually_exclusive_group()
+	group.add_argument("-g", metavar="HEX FILE", type=str, help="generates a .key file from a 64 hex string")
+	group.add_argument("-k", metavar="KEY FILE", type=str, help="generates a 1 time password that expires after 30 secs from a .key file")
+	group.add_argument("-i", "--interface", action="store_true", help="interface mode")
+
+	args = vars(parser.parse_args())
+
+	hex_file_path = args.get("g")
+	key_file_path = args.get("k")
+
+	if (args.get("interface")):
+		make_interface()
+		exit(0)
+
+
+	if (hex_file_path):
+		generate_key(hex_file_path)
 		print("  .・。.・✭゜・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・")
 		print("✧･ﾟYour key was successfully and gracefully generated in your beloved ft_otp.key file, my dear ﾟ･✧")
 		print("  .・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜")
-	elif sys.argv[1] == "-k":
-		generate_tmp_password(sys.argv[2])
+
+	if (key_file_path):
+		if not os.path.isfile(key_file_path):
+			print("Keyfile does not exist .⁠·⁠´⁠¯⁠⁠(⁠>⁠▂⁠<⁠)⁠´⁠¯⁠⁠·⁠.")
+			exit(1)
+		with open(key_file_path, "rb") as file:
+			key = file.read()
+		passwd = generate_tmp_password(key)
+		print(f"(⁠☞⁠ ⁠ಠ⁠_⁠ಠ⁠)⁠☞ Take this bg -> {passwd:06}")
+		img = qrcode_creation(passwd)
+		# Save the final image
+		img.save("qr_code.png")
+		os.system("open qr_code.png")
+
 
 if __name__ == "__main__":
 	main()
