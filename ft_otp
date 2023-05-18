@@ -218,6 +218,7 @@ def main():
 	group.add_argument("-g", metavar="HEX FILE", type=str, help="generates a .key file from a 64 hex string")
 	group.add_argument("-k", metavar="KEY FILE", type=str, help="generates a 1 time password that expires after 30 secs from a .key file")
 	group.add_argument("-i", "--interface", action="store_true", help="interface mode")
+	group.required = True
 
 	args = vars(parser.parse_args())
 
@@ -229,24 +230,31 @@ def main():
 		exit(0)
 
 
-	if (hex_file_path):
-		generate_key(hex_file_path)
-		print("  .・。.・✭゜・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・")
-		print("✧･ﾟYour key was successfully and gracefully generated in your beloved ft_otp.key file, my dear ﾟ･✧")
-		print("  .・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜")
+	try:
+		if (hex_file_path):
+			generate_key(hex_file_path)
+			print("  .・。.・✭゜・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・")
+			print("✧･ﾟYour key was successfully and gracefully generated in your beloved ft_otp.key file, my dear ﾟ･✧")
+			print("  .・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜・。. .・。.・゜✭・.・✫・゜")
 
-	if (key_file_path):
-		if not os.path.isfile(key_file_path):
-			print("Keyfile does not exist .⁠·⁠´⁠¯⁠⁠(⁠>⁠▂⁠<⁠)⁠´⁠¯⁠⁠·⁠.")
-			exit(1)
-		with open(key_file_path, "rb") as file:
-			key = file.read()
-		passwd = generate_tmp_password(key)
-		print(f"(⁠☞⁠ ⁠ಠ⁠_⁠ಠ⁠)⁠☞ Take this bg -> {passwd:06}")
-		img = qrcode_creation(passwd)
-		# Save the final image
-		img.save("qr_code.png")
-		os.system("open qr_code.png")
+		if (key_file_path):
+			if not os.path.isfile(key_file_path):
+				print("Keyfile does not exist .⁠·⁠´⁠¯⁠⁠(⁠>⁠▂⁠<⁠)⁠´⁠¯⁠⁠·⁠.")
+				exit(1)
+			with open(key_file_path, "rb") as file:
+				key = file.read()
+			passwd = generate_tmp_password(key)
+			print(f"(⁠☞⁠ ⁠ಠ⁠_⁠ಠ⁠)⁠☞ Take this bg -> {passwd:06}")
+			img = qrcode_creation(passwd)
+			# Save the final image
+			img.save("qr_code.png")
+			os.system("open qr_code.png")
+	except UnicodeDecodeError as e:
+		print("Mauvais fichier")
+		exit(1)
+	except rsa.DecryptionError as e:
+		print("Mauvais fichier")
+		exit(1)
 
 
 if __name__ == "__main__":
